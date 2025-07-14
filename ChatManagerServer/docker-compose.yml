@@ -9,7 +9,10 @@ services:
       - "5432:5432"
     volumes:
       - postgres_chat_data:/var/lib/postgresql/data
-  server:
+    networks:
+      - chat_network
+      
+  api:
     image: chat_manager_server
     build:
       context: .
@@ -22,6 +25,24 @@ services:
       - ConnectionStrings__DefaultConnection=Host=db;Database=chat;Username=postgres;Password=postgres
     depends_on:
       - db
+    networks:
+      - chat_network
+
+  api_development:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    container_name: chat_manager_dev
+    volumes:
+      - .:/workspace
+    networks:
+      - chat_network
+    depends_on:
+      - db
+    command: sleep infinity
 
 volumes:
   postgres_chat_data:
+
+networks:
+  chat_network:
+    name: chat_server_network
+    driver: bridge

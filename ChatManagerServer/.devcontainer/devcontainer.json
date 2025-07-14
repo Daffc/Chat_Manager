@@ -1,9 +1,0 @@
-{
-  "name": "ChatManagerServer Dev",
-  "dockerFile": "ChatManagerServer/Dockerfile",
-  "context": "..",
-  "appPort": [80, 5182],
-  "extensions": [
-    "ms-dotnettools.csharp"
-  ]
-}
