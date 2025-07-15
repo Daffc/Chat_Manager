@@ -2,7 +2,7 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
 {
 	"name": "ChatManagerServer Dev",
-	"dockerComposeFile": "../ChatManagerServer/docker-compose.yml",
+	"dockerComposeFile": "../docker-compose.yml",
 	"postCreateCommand": "dotnet restore --disable-parallel && dotnet workload restore && dotnet tool restore",
 	"service": "api_development",
 	"workspaceFolder": "/workspace",
@@ -34,8 +34,7 @@
 	//			"protocol": "https"
 	//		}
 	// }
-
-	// Use 'postCreateCommand' to run commands after the container is created.
+// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "dotnet restore",
 
 	// Configure tool-specific properties.
