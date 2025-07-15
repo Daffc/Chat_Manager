@@ -3,9 +3,11 @@
 {
 	"name": "ChatManagerServer Dev",
 	"dockerComposeFile": "../docker-compose.yml",
-	"postCreateCommand": "dotnet restore --disable-parallel && dotnet workload restore && dotnet tool restore",
+	"remoteUser": "root",
+	"postCreateCommand": "bash ./.devcontainer/postCreateCommand.sh",
 	"service": "api_development",
 	"workspaceFolder": "/workspace",
+	"runServices": ["db", "api_development"],
 	"features": {
 		"ghcr.io/devcontainers/features/dotnet:2": {
 			"version": "8.0"
@@ -34,12 +36,4 @@
 	//			"protocol": "https"
 	//		}
 	// }
-// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "dotnet restore",
-
-	// Configure tool-specific properties.
-	// "customizations": {},
-
-	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
 }
