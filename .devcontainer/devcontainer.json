@@ -8,6 +8,7 @@
 	"service": "api_development",
 	"workspaceFolder": "/workspace",
 	"runServices": ["db", "api_development"],
+	"shutdownAction": "stopCompose",
 	"features": {
 		"ghcr.io/devcontainers/features/dotnet:2": {
 			"version": "8.0"
@@ -25,7 +26,6 @@
 		},
 		"ghcr.io/devcontainers/features/git:1": {}
 	},
-
 	"forwardPorts": [5000, 5001],
 	"portsAttributes": {
 			"5001": {
