@@ -8,10 +8,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ChatManagerServer.Migrations
+namespace ChatManagerServer.Infrastructure.Persistence.Migrations
 {
-    [DbContext(typeof(ChatDbContext))]
-    [Migration("20250714183543_AddUserTable")]
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20250715203412_AddUserTable")]
     partial class AddUserTable
     {
         /// <inheritdoc />
@@ -26,11 +26,9 @@ namespace ChatManagerServer.Migrations
 
             modelBuilder.Entity("User", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -62,6 +60,9 @@ namespace ChatManagerServer.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.ToTable("Users");
                 });
