@@ -31,8 +31,8 @@ public sealed class UsersController : ControllerBase
             request.Password
         );
 
-        var userId = await _mediator.Send(command);
-        return Ok(userId);
+        var user = await _mediator.Send(command);
+        return Ok(user);
     }
 
     [HttpGet("{userId:guid}")]

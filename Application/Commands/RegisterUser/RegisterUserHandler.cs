@@ -1,8 +1,9 @@
 using Application.Commands.RegisterUser;
+using Application.DTOs.Responses;
 using Domain.Interfaces;
 using MediatR;
 
-public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, Guid>
+public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, UserResponse>
 {
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
@@ -13,7 +14,7 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, G
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<Guid> Handle(RegisterUserCommand command, CancellationToken cancelationToken){
+    public async Task<UserResponse> Handle(RegisterUserCommand command, CancellationToken cancelationToken){
         var user = new User(
             command.NickName,
             command.FirstName,
@@ -23,6 +24,13 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, G
         );
 
         await _userRepository.AddAsync(user);
-        return user.Id;
+
+        return new UserResponse(
+            user.Id,
+            user.NickName,
+            user.FirstName,
+            user.LastName,
+            user.Email
+        );
     }  
 }
