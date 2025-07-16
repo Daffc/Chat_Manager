@@ -19,6 +19,8 @@ public sealed class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ProblemDetails))]
     public async Task<IActionResult> Register([FromBody] RegisterUserRequest request)
     {
         var command = new RegisterUserCommand(
@@ -35,7 +37,8 @@ public sealed class UsersController : ControllerBase
 
     [HttpGet("{userId:guid}")]
     [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ProblemDetails))]
     public async Task<IActionResult> GetUser(Guid userId)
     {
         var query = new GetUserQuery(userId);

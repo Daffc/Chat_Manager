@@ -1,4 +1,5 @@
 using Application.DTOs.Responses;
+using Domain.Exceptions;
 using Domain.Interfaces;
 using MediatR;
 
@@ -19,7 +20,7 @@ public sealed class GetUserHandler : IRequestHandler<GetUserQuery, UserResponse>
     )
     {
         var user = await _userReponsitory.GetByIdAsync(query.UserId)
-            ?? throw new KeyNotFoundException($"User with ID {query.UserId} not found");
+            ?? throw new NotFoundException($"User with ID {query.UserId} not found");
 
         return new UserResponse(
             user.Id,
