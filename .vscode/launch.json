@@ -9,9 +9,9 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/ChatManagerServer/bin/Debug/net8.0/ChatManagerServer.dll",
+            "program": "${workspaceFolder}/bin/Debug/net8.0/ChatManagerServer.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/ChatManagerServer",
+            "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "serverReadyAction": {
                 "action": "openExternally",
