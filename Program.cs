@@ -1,6 +1,7 @@
 using Domain.Interfaces;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
+using NetEscapades.Extensions.Logging.RollingFile; 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,9 +28,25 @@ builder.Services
 // WebApi
 builder.Services.AddControllers();
 
+
+// Logging in files only on production environment.
+if (builder.Environment.IsProduction())
+{
+    const string logDirectory = "Logs";
+    Directory.CreateDirectory(logDirectory);
+
+    builder.Logging.AddFile(options =>
+    {
+        options.Periodicity = PeriodicityOptions.Daily;
+        options.LogDirectory = logDirectory;
+        options.FileName = "chat_manager-";
+        options.Extension = ".log";
+        options.RetainedFileCountLimit = 7;
+    });
+}
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -41,4 +58,3 @@ app.UseRouting();
 app.UseMiddleware<ExceptionMiddleware>();
 app.MapControllers();
 app.Run();
-
