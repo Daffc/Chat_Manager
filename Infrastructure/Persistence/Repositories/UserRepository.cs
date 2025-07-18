@@ -1,4 +1,6 @@
 using Domain.Interfaces;
+using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories;
 
@@ -21,5 +23,10 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByIdAsync(Guid id)
     {
         return await _dbContext.Users.FindAsync(id);
+    }
+
+    public async Task<bool> ExistsByEmail(string email)
+    {
+        return await _dbContext.Users.AnyAsync(u => u.Email == email);
     }
 }

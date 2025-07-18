@@ -1,6 +1,8 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 
+namespace Domain.Entities;
+
 public class User
 {
     public User(string nickName, string firstName, string lastName, string email, string password)

@@ -1,7 +1,9 @@
 using Application.Commands.RegisterUser;
 using Application.DTOs.Responses;
 using Domain.Interfaces;
+using Domain.Entities;
 using MediatR;
+using FluentValidation;
 
 public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, UserResponse>
 {
@@ -22,6 +24,19 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, U
             command.Email,
             _passwordHasher.Hash(command.Password)
         );
+
+        var validator = new UserValidator();
+        var validationResult = await validator.ValidateAsync(user);
+        
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException(validationResult.Errors.ToList());
+        }
+
+        if (await _userRepository.ExistsByEmail(command.Email))
+        {
+            throw new ArgumentException("Email already exists");
+        }
 
         await _userRepository.AddAsync(user);
 

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+using Domain.Entities;
 
 public sealed class UserFactory
 {
