@@ -5,7 +5,7 @@ using Application.Queries.GetUser;
 using Application.DTOs.Responses;
 using MediatR;
 using Swashbuckle.AspNetCore.Annotations;
-using System.Net;
+using Application.Commands.DeleteUser;
 
 namespace WebApi.Controllers;
 
@@ -65,5 +65,19 @@ public sealed class UsersController : ControllerBase
         var query = new GetUserQuery(userId);
         var user = await _mediator.Send(query);
         return Ok(user);
+    }
+
+
+    [HttpDelete("{userId:guid}")]
+    [SwaggerOperation(
+        Summary = "Delete user",
+        Description = "Soft deletes a user by it's Id"
+    )]
+    [SwaggerResponse(StatusCodes.Status204NoContent, "Deleted successfully")]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(ValidationProblemDetails))]
+    public async Task<IActionResult> Delete(Guid userId)
+    {
+        await _mediator.Send(new DeleteUserCommand(userId));
+        return NoContent();
     }
 }
