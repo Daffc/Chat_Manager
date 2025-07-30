@@ -1,19 +1,32 @@
 using Domain.Interfaces;
+using FluentValidation;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
-using NetEscapades.Extensions.Logging.RollingFile; 
+using Microsoft.OpenApi.Models;
+using NetEscapades.Extensions.Logging.RollingFile;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services
     .AddEndpointsApiExplorer()
-    .AddSwaggerGen(); 
+    .AddSwaggerGen(c =>
+    {
+        c.EnableAnnotations();
+        c.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Version = "v1",
+            Title = "Chat Manager API",
+            Description = "API for Chat Manager features."
+        });
+    });
 
 // Domain
 builder.Services
     .AddScoped<IPasswordHasher, BcryptPasswordHasher>()
     .AddScoped<UserFactory>();
+
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserCommandValidator>();
 
 // Infrastructure
 builder.Services

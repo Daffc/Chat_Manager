@@ -9,14 +9,31 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, U
 {
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IValidator<RegisterUserCommand> _validator;
 
-    public RegisterUserHandler(IUserRepository userRepository, IPasswordHasher passwordHasher)
+    public RegisterUserHandler(
+        IUserRepository userRepository, 
+        IPasswordHasher passwordHasher,
+        IValidator<RegisterUserCommand> validator)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
+        _validator = validator;
     }
 
-    public async Task<UserResponse> Handle(RegisterUserCommand command, CancellationToken cancelationToken){
+    public async Task<UserResponse> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
+    {
+        var validationResult = await _validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new FluentValidation.ValidationException(validationResult.Errors);
+        }
+
+        if (await _userRepository.ExistsByEmail(command.Email))
+        {
+            throw new ArgumentException("Email already exists", nameof(command.Email));
+        }
+
         var user = new User(
             command.NickName,
             command.FirstName,
@@ -25,27 +42,8 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, U
             _passwordHasher.Hash(command.Password)
         );
 
-        var validator = new UserValidator();
-        var validationResult = await validator.ValidateAsync(user);
-        
-        if (!validationResult.IsValid)
-        {
-            throw new ValidationException(validationResult.Errors.ToList());
-        }
-
-        if (await _userRepository.ExistsByEmail(command.Email))
-        {
-            throw new ArgumentException("Email already exists");
-        }
 
         await _userRepository.AddAsync(user);
-
-        return new UserResponse(
-            user.Id,
-            user.NickName,
-            user.FirstName,
-            user.LastName,
-            user.Email
-        );
-    }  
+        return new UserResponse(user.Id, user.NickName, user.FirstName, user.LastName, user.Email);
+    }
 }

@@ -1,6 +1,5 @@
 
 using Domain.Exceptions;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 public class ExceptionMiddleware
@@ -20,48 +19,75 @@ public class ExceptionMiddleware
         {
             await _next(context);
         }
-        catch (ValidationException ex)
+        catch (FluentValidation.ValidationException ex)
         {
             _logger.LogWarning("Validation failed: {Errors}", ex.Errors);
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(new
-            {
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
-                Title = "Validation Error",
-                Status = StatusCodes.Status400BadRequest,
-                Detail = "One or more validation errors occurred",
-                Errors = ex.Errors.Select(e => new
-                {
-                    Field = e.PropertyName,
-                    Message = e.ErrorMessage
-                })
-            });
+            await HandleValidationExceptionAsync(context, ex);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning("Bad Request: {Message}", ex.Message);
+            await HandleGenericAsValidationAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
         }
         catch (NotFoundException ex)
         {
             _logger.LogWarning("NotFound: {Message}", ex.Message);
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            await context.Response.WriteAsJsonAsync(new ProblemDetails
-            {
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
-                Title = "Not Found",
-                Status = StatusCodes.Status404NotFound,
-                Detail = ex.Message
-            });
+            await HandleGenericAsValidationAsync(context, StatusCodes.Status404NotFound, "Not Found", ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An unhandled exception occurred");
-
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await context.Response.WriteAsJsonAsync(new ProblemDetails
-            {
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
-                Title = "Internal Server Error",
-                Status = StatusCodes.Status500InternalServerError,
-                Detail = "An unexpected error occurred. Please try again later.",
-                Instance = context.Request.Path
-            });
+            await HandleGenericAsValidationAsync(context, StatusCodes.Status500InternalServerError, "Internal Server Error", "An unexpected error occurred. Please try again later.");
         }
+    }
+
+    private async Task HandleValidationExceptionAsync(HttpContext context, FluentValidation.ValidationException ex)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        context.Response.ContentType = "application/json";
+
+        var validationErrors = ex.Errors
+            .GroupBy(e => e.PropertyName)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(e => e.ErrorMessage).ToArray()
+            );
+
+        var problemDetails = new ValidationProblemDetails(validationErrors)
+        {
+            Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+            Title = "Validation Error",
+            Status = StatusCodes.Status400BadRequest,
+            Instance = context.Request.Path
+        };
+
+        await context.Response.WriteAsJsonAsync(problemDetails);
+    }
+
+    private async Task HandleGenericAsValidationAsync(HttpContext context, int statusCode, string title, string message)
+    {
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
+
+        var errors = new Dictionary<string, string[]>
+        {
+            { "general", new[] { message } }
+        };
+
+        var problemDetails = new ValidationProblemDetails(errors)
+        {
+            Type = statusCode switch
+            {
+                StatusCodes.Status400BadRequest => "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+                StatusCodes.Status404NotFound => "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+                StatusCodes.Status500InternalServerError => "https://tools.ietf.org/html/rfc7231#section-6.6.1",
+                _ => "about:blank"
+            },
+            Title = title,
+            Status = statusCode,
+            Instance = context.Request.Path
+        };
+
+        await context.Response.WriteAsJsonAsync(problemDetails);
     }
 }

@@ -20,6 +20,6 @@ public sealed record RegisterUserRequest(
     string Email,
 
     [Required(ErrorMessage = "Password is required")]
-    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$", ErrorMessage = "Password must have between 8-20 characters with at least 1 uppercase, 1 lowercase, 1 number and 1 special character")]
+    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,20}$", ErrorMessage = "Password must have between 8-20 characters with at least 1 uppercase, 1 lowercase, 1 number and 1 special character")]
     string Password
 );
