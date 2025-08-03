@@ -29,6 +29,13 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
+    public async Task<User?> GetByEmail(string email)
+    {
+        return await _dbContext.Users
+            .Where(u => u.Email == email && u.DeletedAt == null)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task<bool> ExistsByEmail(string email)
     {
         return await _dbContext.Users

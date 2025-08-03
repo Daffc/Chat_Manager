@@ -4,6 +4,8 @@ using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NetEscapades.Extensions.Logging.RollingFile;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,19 +26,21 @@ builder.Services
 // Domain
 builder.Services
     .AddScoped<IPasswordHasher, BcryptPasswordHasher>()
+    .AddScoped<IJwtService, JwtService>()
     .AddScoped<UserFactory>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserCommandValidator>();
 
 // Infrastructure
 builder.Services
-    .AddDbContext<AppDbContext>(options => 
+    .AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")))
     .AddScoped<IUserRepository, UserRepository>();
 
 // Application
 builder.Services
-    .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(RegisterUserHandler).Assembly));
+    .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(RegisterUserHandler).Assembly))
+    .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(LoginUserHandler).Assembly));
 
 // WebApi
 builder.Services.AddControllers();
@@ -57,6 +61,26 @@ if (builder.Environment.IsProduction())
         options.RetainedFileCountLimit = 7;
     });
 }
+
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT:Key not set in configuration.");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT:Issuer is not configured.");
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT:Audience not set in configuration.");
+
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtAudience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+            };
+        }
+    );
 
 var app = builder.Build();
 

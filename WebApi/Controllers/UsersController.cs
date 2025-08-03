@@ -6,6 +6,7 @@ using Application.DTOs.Responses;
 using MediatR;
 using Swashbuckle.AspNetCore.Annotations;
 using Application.Commands.DeleteUser;
+using Application.Commands.LoginUser;
 
 namespace WebApi.Controllers;
 
@@ -67,7 +68,6 @@ public sealed class UsersController : ControllerBase
         return Ok(user);
     }
 
-
     [HttpDelete("{userId:guid}")]
     [SwaggerOperation(
         Summary = "Delete user",
@@ -79,5 +79,20 @@ public sealed class UsersController : ControllerBase
     {
         await _mediator.Send(new DeleteUserCommand(userId));
         return NoContent();
+    }
+
+    [HttpPost("login")]
+    [SwaggerOperation(
+        Summary = "Authenticate user and return JWT",
+        Description = "Soft deletes a user by it's Id"
+    )]
+    [SwaggerResponse(StatusCodes.Status200OK, "Login successful", typeof(AuthResponse))]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Invalid credentials", typeof(ValidationProblemDetails))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid credentials", typeof(ValidationProblemDetails))]
+    public async Task<IActionResult> Login([FromBody] LoginUserRequest request)
+    {
+        var command = new LoginUserCommand(request.Email, request.Password);
+        var result = await _mediator.Send(command);
+        return Ok(result);
     }
 }
