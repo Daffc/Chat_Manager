@@ -7,6 +7,7 @@ using MediatR;
 using Swashbuckle.AspNetCore.Annotations;
 using Application.Commands.DeleteUser;
 using Application.Commands.LoginUser;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Controllers;
 
@@ -69,15 +70,17 @@ public sealed class UsersController : ControllerBase
     }
 
     [HttpDelete("{userId:guid}")]
+    [Authorize]
     [SwaggerOperation(
         Summary = "Delete user",
         Description = "Soft deletes a user by it's Id"
     )]
     [SwaggerResponse(StatusCodes.Status204NoContent, "Deleted successfully")]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(ValidationProblemDetails))]
+    [SwaggerResponse(StatusCodes.Status403Forbidden, "Forbidden access", typeof(ValidationProblemDetails))]
     public async Task<IActionResult> Delete(Guid userId)
     {
-        await _mediator.Send(new DeleteUserCommand(userId));
+        await _mediator.Send(new DeleteUserCommand(userId, User));
         return NoContent();
     }
 

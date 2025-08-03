@@ -43,7 +43,7 @@ public class UserRepository : IUserRepository
             .AnyAsync(u => u.Email == email);
     }
 
-    public async Task DeleteAsync(Guid userId)
+    public async Task<bool> DeleteAsync(Guid userId)
     {
         var user = await _dbContext.Users.FindAsync(userId);
 
@@ -54,5 +54,6 @@ public class UserRepository : IUserRepository
 
         _dbContext.Users.Remove(user);
         await _dbContext.SaveChangesAsync();
+        return true;
     }
 }
