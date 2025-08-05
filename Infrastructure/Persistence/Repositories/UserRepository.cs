@@ -39,7 +39,6 @@ public class UserRepository : IUserRepository
     public async Task<bool> ExistsByEmail(string email)
     {
         return await _dbContext.Users
-            .Where(u => u.DeletedAt == null)
             .AnyAsync(u => u.Email == email);
     }
 
