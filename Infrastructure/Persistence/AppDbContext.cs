@@ -9,9 +9,51 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<User>()
-            .HasIndex(u => u.Email)
-            .IsUnique();
+
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            // Primary Key
+            entity.HasKey(u => u.Id);
+
+            // Properties
+            entity.Property(u => u.NickName)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            entity.Property(u => u.FirstName)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(u => u.LastName)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(u => u.Email)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(u => u.Password)
+                .IsRequired();
+
+            entity.Property(u => u.CreatedAt)
+                .IsRequired()
+                .HasColumnType("timestamp with time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(u => u.UpdatedAt)
+                .IsRequired()
+                .HasColumnType("timestamp with time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(u => u.DeletedAt)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired(false);
+
+            // Indexes
+            entity.HasIndex(u => u.Email)
+                .IsUnique();
+        });
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
