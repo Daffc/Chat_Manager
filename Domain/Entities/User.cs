@@ -13,6 +13,7 @@ public class User
         Password = password;
     }
 
+    // Properties
     [Key]
     public Guid Id { get; private set; }
     public string NickName { get; private set; }
@@ -23,4 +24,10 @@ public class User
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }
+
+    // Navigation properties
+    public virtual ICollection<ChatRoom> OwnedChatRooms { get; private set; } = new List<ChatRoom>();
+    public virtual ICollection<ChatRoomMember> ChatRoomMemberships { get; private set; } = new List<ChatRoomMember>();
+    public virtual ICollection<Message> SentMessages { get; private set; } = new List<Message>();
+
 }
