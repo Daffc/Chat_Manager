@@ -77,10 +77,11 @@ public sealed class UsersController : ControllerBase
     )]
     [SwaggerResponse(StatusCodes.Status204NoContent, "Deleted successfully")]
     [SwaggerResponse(StatusCodes.Status404NotFound, "User not found", typeof(ValidationProblemDetails))]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "User unauthorized", typeof(ValidationProblemDetails))]
     [SwaggerResponse(StatusCodes.Status403Forbidden, "Forbidden access", typeof(ValidationProblemDetails))]
     public async Task<IActionResult> Delete(Guid userId)
     {
-        await _mediator.Send(new DeleteUserCommand(userId, User));
+        await _mediator.Send(new DeleteUserCommand(userId));
         return NoContent();
     }
 

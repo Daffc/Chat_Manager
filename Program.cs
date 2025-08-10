@@ -51,6 +51,8 @@ builder.Services
 // Domain
 builder.Services
     .AddScoped<IPasswordHasher, BcryptPasswordHasher>()
+    .AddHttpContextAccessor()
+    .AddScoped<IIdentityService, IdentityService>()
     .AddScoped<IJwtService, JwtService>()
     .AddScoped<UserFactory>();
 

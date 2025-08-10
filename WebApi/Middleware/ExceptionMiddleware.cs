@@ -34,6 +34,11 @@ public class ExceptionMiddleware
             _logger.LogWarning("NotFound: {Message}", ex.Message);
             await HandleGenericAsValidationAsync(context, StatusCodes.Status404NotFound, "Not Found", ex.Message);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("NotFound: {Message}", ex.Message);
+            await HandleGenericAsValidationAsync(context, StatusCodes.Status401Unauthorized, "Unauthorized", ex.Message);
+        }
         catch (ForbiddenAccessException ex)
         {
             _logger.LogWarning("Forbidden Access: {Message}", ex.Message);

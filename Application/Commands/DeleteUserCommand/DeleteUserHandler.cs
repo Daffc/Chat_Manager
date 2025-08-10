@@ -1,5 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Application.Commands.DeleteUser;
 using Domain.Interfaces;
 using Domain.Exceptions;
@@ -8,22 +6,19 @@ using MediatR;
 public class DeleteUserHandler : IRequestHandler<DeleteUserCommand, bool>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IIdentityService _identityService;
 
-    public DeleteUserHandler(IUserRepository userRepository)
+    public DeleteUserHandler(IUserRepository userRepository, IIdentityService identityService)
     {
         _userRepository = userRepository;
+        _identityService = identityService;
     }
 
     public async Task<bool> Handle(DeleteUserCommand command, CancellationToken cancellationToken)
     {
-        var userIdFromToken = command.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? command.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var currentUserId  = _identityService.GetCurrentUserId();
 
-        if (userIdFromToken is null || !Guid.TryParse(userIdFromToken, out var parsedTokenUserId))
-        {
-            throw new ForbiddenAccessException("Invalid user identity.");
-        }
-
-        if (parsedTokenUserId != command.UserId)
+        if (currentUserId  != command.UserId)
         {
             throw new ForbiddenAccessException("You can only delete your own account.");
         }
