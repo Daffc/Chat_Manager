@@ -62,12 +62,15 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserCommandValidato
 builder.Services
     .AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")))
-    .AddScoped<IUserRepository, UserRepository>();
+    .AddScoped<IUserRepository, UserRepository>()
+    .AddScoped<IChatRoomMemberRepository, ChatRoomMemberRepository>()
+    .AddScoped<IChatRoomRepository, ChatRoomRepository>();
 
 // Application
 builder.Services
     .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(RegisterUserHandler).Assembly))
-    .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(LoginUserHandler).Assembly));
+    .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(LoginUserHandler).Assembly))
+    .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(RegisterChatRoom).Assembly));
 
 // WebApi
 builder.Services.AddControllers();

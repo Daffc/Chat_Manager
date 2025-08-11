@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace Domain.Entities;
 
 public class ChatRoomMember
@@ -12,8 +10,8 @@ public class ChatRoomMember
     }
     public Guid UserId { get; private set; }
     public Guid ChatRoomId { get; private set; }
-    public DateTime JoinedAt { get; private set; }
-    public DateTime? LeftAt { get; private set; }
+    public DateTime JoinedAt { get; set; }
+    public DateTime? LeftAt { get; set; }
 
     // Navigation properties
     public virtual User? User { get; set; }

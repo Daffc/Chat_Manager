@@ -6,6 +6,9 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<User> Users { get; set; }
+    public DbSet<ChatRoom> ChatRoom { get; set; }
+    public DbSet<ChatRoomMember> ChatRoomMember { get; set; }
+    public DbSet<Message> Message { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -181,27 +184,58 @@ public class AppDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var entries = ChangeTracker.Entries<User>();
+        DateTime utcNow = DateTime.UtcNow;
 
-
-        foreach (var entry in entries)
+        foreach (var entry in ChangeTracker.Entries<User>())
         {
             switch (entry.State)
             {
                 case EntityState.Added:
-                    entry.Entity.CreatedAt = DateTime.UtcNow;
-                    entry.Entity.UpdatedAt = DateTime.UtcNow;
+                    entry.Entity.CreatedAt = utcNow;
+                    entry.Entity.UpdatedAt = utcNow;
                     break;
                 case EntityState.Modified:
-                    entry.Entity.UpdatedAt = DateTime.UtcNow;
+                    entry.Entity.UpdatedAt = utcNow;
                     break;
                 case EntityState.Deleted:
                     entry.State = EntityState.Modified;
-                    entry.Entity.DeletedAt = DateTime.UtcNow;
-                    entry.Entity.UpdatedAt = DateTime.UtcNow;
+                    entry.Entity.DeletedAt = utcNow;
+                    entry.Entity.UpdatedAt = utcNow;
                     break;
             }
+        }
 
+        foreach (var entry in ChangeTracker.Entries<ChatRoom>())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.Entity.CreatedAt = utcNow;
+                    entry.Entity.UpdatedAt = utcNow;
+                    break;
+                case EntityState.Modified:
+                    entry.Entity.UpdatedAt = utcNow;
+                    break;
+                case EntityState.Deleted:
+                    entry.State = EntityState.Modified;
+                    entry.Entity.DeletedAt = utcNow;
+                    entry.Entity.UpdatedAt = utcNow;
+                    break;
+            }
+        }
+        
+        foreach (var entry in ChangeTracker.Entries<ChatRoomMember>())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.Entity.JoinedAt = utcNow;
+                    break;
+                case EntityState.Deleted:
+                    entry.State = EntityState.Modified;
+                    entry.Entity.LeftAt = utcNow;
+                    break;
+            }
         }
         
         return await base.SaveChangesAsync(cancellationToken);
