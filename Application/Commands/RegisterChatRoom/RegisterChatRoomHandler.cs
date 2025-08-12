@@ -13,12 +13,14 @@ public sealed class RegisterChatRoom : IRequestHandler<RegisterChatRoomCommand, 
     private readonly IUserRepository _userRepository;
     private readonly IValidator<RegisterChatRoomCommand> _validator;
     private readonly IIdentityService _identityService;
+    private readonly IUnitOfWork _unitOfWork;
     public RegisterChatRoom(
         IChatRoomRepository chatRoomRepository,
         IChatRoomMemberRepository chatRoomMemberRepository,
         IUserRepository userRepository,
         IValidator<RegisterChatRoomCommand> validator,
-        IIdentityService identityService
+        IIdentityService identityService,
+        IUnitOfWork unitOfWork
     )
     {
         _chatRoomRepository = chatRoomRepository;
@@ -26,11 +28,11 @@ public sealed class RegisterChatRoom : IRequestHandler<RegisterChatRoomCommand, 
         _userRepository = userRepository;
         _validator = validator;
         _identityService = identityService;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<ChatRoomResponse> Handle(RegisterChatRoomCommand command, CancellationToken cancellationToken)
     {
-
         var currentUserId  = _identityService.GetCurrentUserId();
 
         var validationResult = await _validator.ValidateAsync(command, cancellationToken);
@@ -47,8 +49,8 @@ public sealed class RegisterChatRoom : IRequestHandler<RegisterChatRoomCommand, 
 
         // Creating ChatRoom
         var chatRoom = new ChatRoom(
-            currentUserId,
-            command.Name
+            ownerId: currentUserId,
+            name: command.Name
         );
         await _chatRoomRepository.AddAsync(chatRoom);
 
@@ -58,7 +60,10 @@ public sealed class RegisterChatRoom : IRequestHandler<RegisterChatRoomCommand, 
             chatRoomId: chatRoom.Id
         );
         await _chatRoomMemberRepository.AddAsync(ownerMember);
-            
+
+        // Persisting new instances in the database.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
         return new ChatRoomResponse(chatRoom.Id, chatRoom.Name);
     }
 }

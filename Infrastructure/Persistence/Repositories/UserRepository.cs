@@ -18,7 +18,6 @@ public class UserRepository : IUserRepository
     public async Task<User> AddAsync(User user)
     {
         await _dbContext.Users.AddAsync(user);
-        await _dbContext.SaveChangesAsync();
         return user;
     }
 
@@ -52,7 +51,6 @@ public class UserRepository : IUserRepository
         }
 
         _dbContext.Users.Remove(user);
-        await _dbContext.SaveChangesAsync();
         return true;
     }
 }

@@ -10,15 +10,19 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, U
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IValidator<RegisterUserCommand> _validator;
+    private readonly IUnitOfWork _unitOfWork;
 
     public RegisterUserHandler(
-        IUserRepository userRepository, 
+        IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IValidator<RegisterUserCommand> validator)
+        IValidator<RegisterUserCommand> validator,
+        IUnitOfWork unitOfWork
+    )
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _validator = validator;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<UserResponse> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
@@ -41,9 +45,11 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, U
             command.Email,
             _passwordHasher.Hash(command.Password)
         );
-
-
         await _userRepository.AddAsync(user);
+
+        // Persisting soft-delete in database.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
         return new UserResponse(user.Id, user.NickName, user.FirstName, user.LastName, user.Email);
     }
 }

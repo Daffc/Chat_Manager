@@ -15,7 +15,6 @@ public class ChatRoomRepository : IChatRoomRepository
     public async Task<ChatRoom> AddAsync(ChatRoom chatRoom)
     {
         await _dbContext.ChatRoom.AddAsync(chatRoom);
-        await _dbContext.SaveChangesAsync();
         return chatRoom;
     }
 }

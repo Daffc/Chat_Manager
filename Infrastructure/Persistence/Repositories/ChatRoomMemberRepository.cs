@@ -17,7 +17,6 @@ public class ChatRoomMemberRepository : IChatRoomMemberRepository
     public async Task<ChatRoomMember> AddAsync(ChatRoomMember chatRoomMember)
     {
         await _dbContext.ChatRoomMember.AddAsync(chatRoomMember);
-        await _dbContext.SaveChangesAsync();
         return chatRoomMember;
     }
 

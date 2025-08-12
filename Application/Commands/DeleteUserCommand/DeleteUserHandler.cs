@@ -7,18 +7,24 @@ public class DeleteUserHandler : IRequestHandler<DeleteUserCommand, bool>
 {
     private readonly IUserRepository _userRepository;
     private readonly IIdentityService _identityService;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public DeleteUserHandler(IUserRepository userRepository, IIdentityService identityService)
+    public DeleteUserHandler(
+        IUserRepository userRepository,
+        IIdentityService identityService,
+        IUnitOfWork unitOfWork
+    )
     {
         _userRepository = userRepository;
         _identityService = identityService;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<bool> Handle(DeleteUserCommand command, CancellationToken cancellationToken)
     {
-        var currentUserId  = _identityService.GetCurrentUserId();
+        var currentUserId = _identityService.GetCurrentUserId();
 
-        if (currentUserId  != command.UserId)
+        if (currentUserId != command.UserId)
         {
             throw new ForbiddenAccessException("You can only delete your own account.");
         }
@@ -29,6 +35,9 @@ public class DeleteUserHandler : IRequestHandler<DeleteUserCommand, bool>
         {
             throw new NotFoundException($"User with ID '{command.UserId}' not found.");
         }
+
+        // Persisting soft-delete in database.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return true;
     }

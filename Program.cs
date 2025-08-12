@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using NetEscapades.Extensions.Logging.RollingFile;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,6 +63,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserCommandValidato
 builder.Services
     .AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")))
+    .AddScoped<IUnitOfWork, UnitOfWork>()
     .AddScoped<IUserRepository, UserRepository>()
     .AddScoped<IChatRoomMemberRepository, ChatRoomMemberRepository>()
     .AddScoped<IChatRoomRepository, ChatRoomRepository>();
