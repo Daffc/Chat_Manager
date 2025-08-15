@@ -16,12 +16,14 @@
 
 ### 🔐 User Management
 - Register/Login with JWT
-- Invite users by email or username
+- Invite other registered users by their account ID
+- Accept or decline invitations
 - All actions require authentication
 
 ### 💬 Chat Room Management
 - Create, list, get, and delete owned chat rooms
-- Invite users to chat rooms
+- Invite registered users to chat rooms
+- Track invitation status (pending, accepted, declined, expired)
 
 ### 💭 Messaging
 - Send/receive text messages via WebSocket
@@ -40,7 +42,7 @@
 | POST   | /api/users        | Create user         |
 | GET    | /api/users/{id}   | Get user by ID      |
 | DELETE | /api/users/{id}   | Delete user by ID   |
-| POST   | /api/users/login  | Authenticate user and return JWT   |
+| POST   | /api/users/login  | Authenticate user and return JWT |
 
 ### Chat Room Routes
 
@@ -50,7 +52,17 @@
 | GET    | /api/chatrooms               | List user chat rooms      |
 | GET    | /api/chatrooms/{id}         | Get chat room details     |
 | DELETE | /api/chatrooms/{id}         | Delete owned chat room    |
-| POST   | /api/chatrooms/{id}/invite  | Invite user to chat room  |
+| POST   | /api/chatrooms/{id}/invite  | Invite a registered user to chat room |
+| GET    | /api/chatrooms/{id}/invites | List pending invites for a chat room (owner only) |
+
+### Invitation Routes
+
+| Method | Route                                   | Description |
+|--------|-----------------------------------------|-------------|
+| GET    | /api/users/me/invites                   | List my pending invites |
+| POST   | /api/invites/{inviteId}/accept          | Accept invitation |
+| POST   | /api/invites/{inviteId}/decline         | Decline invitation |
+| DELETE | /api/invites/{inviteId}                 | Cancel invitation (owner only) |
 
 ### Message Routes
 
@@ -90,36 +102,50 @@ sequenceDiagram
     participant RabbitMQ as RabbitMQ (Message Queue)
     participant DB as PostgreSQL (DB)
 
+    %% --- Authentication & CRUD ---
     User->>API: HTTP Auth / ChatRoom CRUD / Message History Requests
     API->>DB: Query/Update User, ChatRoom, Messages tables
     DB-->>API: Return data / confirmations
 
+    %% --- WebSocket Connection ---
     User->>WS: Open WebSocket connection (JWT auth)
     WS->>Redis: Register session, user presence
     Redis-->>WS: Confirm session
 
-    User->>WS: Send chat message (WebSocket)
+    %% --- Sending Message ---
+    User->>WS: Send chat message
     WS->>API: Validate message (optional)
     WS->>RabbitMQ: Publish message event
-
     RabbitMQ->>API: Consume message event
-    API->>DB: Persist message data
-    API->>Redis: Publish message to subscribers (chat room members)
+    API->>DB: Persist message
+    API->>Redis: Publish message to room members
+    Redis->>WS: Notify online users
+    WS->>User: Push new message
 
-    Redis->>WS: Notify online users with new message
-    WS->>User: Push new message in real-time
-
-    User->>WS: Typing indicator events
-    WS->>Redis: Update typing status
-    Redis->>WS: Broadcast typing status to room members
-    WS->>User: Real-time typing notifications
-
+    %% --- Deleting Message ---
     User->>API: DELETE /api/messages/{id}
-    API->>DB: Soft-delete message (set DeletedAt)
-    DB-->>API: Confirmation
+    API->>DB: Soft-delete message
     API->>Redis: Publish message deletion
     Redis->>WS: Notify room members
-    WS->>User: Real-time message removal update
+    WS->>User: Real-time message removal
+
+    %% --- Sending Invitation ---
+    User->>API: POST /api/chatrooms/{id}/invite
+    API->>DB: Create CHATROOM_INVITE (PENDING)
+    DB-->>API: Confirmation
+    API->>WS: Push "invite_received" event to invitee
+
+    %% --- Accepting Invitation ---
+    User->>API: POST /api/invites/{inviteId}/accept
+    API->>DB: Validate + Add to CHATROOM_MEMBERS
+    API->>DB: Update invite status to ACCEPTED
+    API->>WS: Push "invite_accepted" + "user_joined_room" events to room members
+
+    %% --- Declining Invitation ---
+    User->>API: POST /api/invites/{inviteId}/decline
+    API->>DB: Update invite status to DECLINED
+    API->>WS: Push "invite_declined" event to inviter
+
 ```
 
 ---
@@ -131,9 +157,11 @@ erDiagram
     USERS ||--o{ CHATROOM_MEMBERS : has
     USERS ||--o{ CHATROOMS : owns
     USERS ||--o{ MESSAGES : sends
+    USERS ||--o{ CHATROOM_INVITES : sends_or_receives
 
     CHATROOMS ||--o{ CHATROOM_MEMBERS : includes
     CHATROOMS ||--o{ MESSAGES : contains
+    CHATROOMS ||--o{ CHATROOM_INVITES : sends_to
 
     USERS ||--o{ MESSAGE_STATUS : receives
     MESSAGES ||--o{ MESSAGE_STATUS : has_status
@@ -164,6 +192,17 @@ erDiagram
         UUID ChatRoomId FK
         DateTime JoinedAt
         DateTime LeftAt
+    }
+
+    CHATROOM_INVITES {
+        UUID Id PK
+        UUID ChatRoomId FK
+        UUID InviterId FK
+        UUID InviteeId FK
+        String Status
+        DateTime CreatedAt
+        DateTime UpdatedAt
+        DateTime ExpiresAt
     }
 
     MESSAGES {
@@ -286,16 +325,88 @@ GET /api/chatrooms/{roomId}/messages?page=1&pageSize=50
 }
 ```
 
+## 📩 Chat Room Invitations – Detailed Behavior
+
+### **Sending Invitations**
+1. Owner sends:
+```json
+POST /api/chatrooms/{id}/invite
+{
+  "inviteeId": "uuid"
+}
+```
+2. API validates:
+   - Requester is the owner of the chat room.
+   - Invitee exists in `USERS`.
+   - Invitee is not already a member.
+   - No existing pending invite for this user & room.
+3. Creates `CHATROOM_INVITES` record with status `PENDING`.
+4. Sends WebSocket event to invitee if online:
+```json
+{
+  "type": "invite_received",
+  "inviteId": "uuid",
+  "chatRoomId": "uuid",
+  "chatRoomName": "Team Chat",
+  "inviterId": "uuid"
+}
+```
+
 ---
 
-## 🚀 Development Timeline (Phase 1)
+### **Accepting Invitations**
+1. Invitee sends:
+```
+POST /api/invites/{inviteId}/accept
+```
+2. API validates:
+   - Invite exists and is `PENDING`.
+   - Invitee matches the authenticated user.
+   - Invite has not expired.
+3. Adds user to `CHATROOM_MEMBERS`.
+4. Updates invite status to `ACCEPTED`.
+5. Broadcasts:
+   - To all room members: `user_joined_room`
+   - To invitee: acceptance confirmation.
 
-| Week | Milestone                                  |
-|------|---------------------------------------------|
-| 1    | Infra, auth, basic user endpoints           |
-| 2    | Chat room creation, invite, delete          |
-| 3    | WebSocket server setup                      |
-| 4    | RabbitMQ integration + message persistence  |
-| 5    | React UI (chat, room listing, auth)         |
-| 6    | Final testing, Swagger docs, deployment     |
-|      | (Optional): Message deletion + real-time sync |
+---
+
+### **Declining Invitations**
+1. Invitee sends:
+```
+POST /api/invites/{inviteId}/decline
+```
+2. API validates invite.
+3. Sets invite status to `DECLINED`.
+4. Sends WebSocket event to inviter: `invite_declined`.
+
+---
+
+### **Expiration**
+- Invitations expire at `ExpiresAt` (default: 7 days).
+- Expired invites cannot be accepted.
+- Optional cleanup job removes expired invites.
+
+---
+
+### **WebSocket Events**
+| Event Type          | Payload |
+|---------------------|---------|
+| `invite_received`   | `{ inviteId, chatRoomId, chatRoomName, inviterId }` |
+| `invite_accepted`   | `{ inviteId, chatRoomId, userId }` |
+| `invite_declined`   | `{ inviteId, chatRoomId, userId }` |
+| `user_joined_room`  | `{ chatRoomId, userId }` |
+---
+
+## 🚀 Development Timeline (Phase 1 – Updated)
+
+| Week | Milestone |
+|------|-----------|
+| **1** | **Infrastructure Setup**<br>• Project scaffolding (.NET 8 backend, React frontend)<br>• PostgreSQL, Redis, RabbitMQ containers<br>• Auth with JWT + basic `/api/users` CRUD<br>• Swagger/OpenAPI documentation enabled |
+| **2** | **User & Chat Room Core**<br>• User registration/login flow complete<br>• Create, list, get, and delete chat rooms<br>• Owner validation and authentication middleware<br>• Initial DB migrations |
+| **3** | **Invitation System**<br>• `CHATROOM_INVITES` table & entity<br>• API: Send invite (owner only), list pending invites<br>• WebSocket: `invite_received` event to invitee<br>• Basic frontend UI for viewing & sending invites |
+| **4** | **Invitation Responses & Membership Updates**<br>• API: Accept/decline invites<br>• DB updates membership & invite status<br>• WebSocket: `invite_accepted`, `invite_declined`, `user_joined_room` events<br>• Frontend UI for accepting/declining invites |
+| **5** | **Messaging Core**<br>• WebSocket server setup with SignalR<br>• Send/receive real-time messages<br>• RabbitMQ integration for async persistence<br>• Store messages in PostgreSQL<br>• Redis pub/sub for broadcasting |
+| **6** | **Message History & Deletion**<br>• API: Paginated `GET /api/chatrooms/{id}/messages` excluding deleted<br>• API: Soft-delete message + WebSocket `message_deleted` event<br>• Frontend updates message list in real time |
+| **7** | **Frontend Chat UI & Presence**<br>• Complete chat room UI with member list<br>• Real-time presence indicators via Redis<br>• Typing indicators (`typing_started`, `typing_stopped`) |
+| **8** | **Final Testing & Deployment**<br>• End-to-end integration tests<br>• Security checks & rate limiting<br>• Production deployment scripts<br>• Post-launch monitoring setup |
