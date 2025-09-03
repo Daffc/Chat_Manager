@@ -27,7 +27,7 @@
 
 ### 💭 Messaging
 - Send/receive text messages via WebSocket
-- Paginated chat history via REST
+- Chat history fetched with cursor-based pagination
 - Track message status: delivered, read
 - Users can delete their own messages in chat rooms (soft delete)
 
@@ -66,10 +66,10 @@
 
 ### Message Routes
 
-| Method | Route                                  | Description                            |
-|--------|-----------------------------------------|----------------------------------------|
-| GET    | /api/chatrooms/{roomId}/messages       | Get paginated message history          |
-| DELETE | /api/messages/{messageId}              | Delete own message (soft delete)       |
+| Method | Route                                                                 | Description |
+|--------|-----------------------------------------------------------------------|-------------|
+| GET    | /api/chatrooms/{roomId}/messages?limit={n}\&before={cursor}\&after={cursor} | Get chat history using cursor-based pagination |
+| DELETE | /api/messages/{messageId}                                             | Delete own message (soft delete) |
 
 ---
 
@@ -103,7 +103,7 @@ sequenceDiagram
     participant DB as PostgreSQL (DB)
 
     %% --- Authentication & CRUD ---
-    User->>API: HTTP Auth / ChatRoom CRUD / Message History Requests
+    User->>API: HTTP Auth / ChatRoom CRUD / Invite / Message History
     API->>DB: Query/Update User, ChatRoom, Messages tables
     DB-->>API: Return data / confirmations
 
@@ -114,7 +114,6 @@ sequenceDiagram
 
     %% --- Sending Message ---
     User->>WS: Send chat message
-    WS->>API: Validate message (optional)
     WS->>RabbitMQ: Publish message event
     RabbitMQ->>API: Consume message event
     API->>DB: Persist message
@@ -129,6 +128,13 @@ sequenceDiagram
     Redis->>WS: Notify room members
     WS->>User: Real-time message removal
 
+    %% --- Fetching Messages with Cursor ---
+    User->>API: GET /api/chatrooms/{roomId}/messages?before/after=<cursor>&limit=50
+    API->>API: Decode cursor (Base64+HMAC)
+    API->>DB: Fetch messages before/after CreatedAt
+    DB-->>API: Return results
+    API-->>User: Messages + new cursors {nextBefore, nextAfter}
+
     %% --- Sending Invitation ---
     User->>API: POST /api/chatrooms/{id}/invite
     API->>DB: Create CHATROOM_INVITE (PENDING)
@@ -139,13 +145,12 @@ sequenceDiagram
     User->>API: POST /api/invites/{inviteId}/accept
     API->>DB: Validate + Add to CHATROOM_MEMBERS
     API->>DB: Update invite status to ACCEPTED
-    API->>WS: Push "invite_accepted" + "user_joined_room" events to room members
+    API->>WS: Push "invite_accepted" + "user_joined_room" events
 
     %% --- Declining Invitation ---
     User->>API: POST /api/invites/{inviteId}/decline
     API->>DB: Update invite status to DECLINED
     API->>WS: Push "invite_declined" event to inviter
-
 ```
 
 ---
@@ -210,7 +215,7 @@ erDiagram
         UUID ChatRoomId FK
         UUID SenderId FK
         String Content
-        DateTime CreatedAt
+        DateTime CreatedAt "← Used in cursor-based pagination"
         DateTime UpdatedAt
         DateTime DeletedAt
     }
@@ -289,31 +294,24 @@ DELETE /api/messages/{messageId}
 
 ---
 
-### 📜 Fetching Message History
+### 📜 Fetching Message History (Cursor-Based)
 
-**Action**: A user fetches historical messages for a specific chat room.  
-**Requirements**:
-- Must be authenticated and a member of the room.
-- Deleted messages (with `DeletedAt` not null) must be excluded.
-- Supports pagination.
+**Action**: A user fetches messages using **cursor pagination**.  
 
-**API Route**:
+**Requirements**:  
+- Must be authenticated and a chat room member.  
+- Deleted messages excluded.  
+- Supports `before` / `after` cursors with limit.  
+- Cursor is **opaque**: Base64(JSON payload + HMAC signature).  
+
+**API Route**:  
 ```
-GET /api/chatrooms/{roomId}/messages?page=1&pageSize=50
+GET /api/chatrooms/{roomId}/messages?limit=50&before=<cursor>&after=<cursor>
 ```
-
-**Flow**:
-1. Client calls REST endpoint with JWT.
-2. Backend validates user membership.
-3. Messages are queried, ordered by `CreatedAt DESC`, excluding rows where `DeletedAt` is not null.
-4. Messages are returned in pages.
 
 **Response Example**:
 ```json
 {
-  "page": 1,
-  "pageSize": 50,
-  "total": 152,
   "messages": [
     {
       "id": "uuid",
@@ -321,9 +319,17 @@ GET /api/chatrooms/{roomId}/messages?page=1&pageSize=50
       "content": "Hi there!",
       "createdAt": "2025-08-05T13:00:00Z"
     }
-  ]
+  ],
+  "paging": {
+    "hasMoreBefore": true,
+    "hasMoreAfter": false,
+    "nextBefore": "eyJpZCI6...",
+    "nextAfter": "eyJpZCI6..."
+  }
 }
 ```
+
+---
 
 ## 📩 Chat Room Invitations – Detailed Behavior
 
@@ -407,6 +413,6 @@ POST /api/invites/{inviteId}/decline
 | **3** | **Invitation System**<br>• `CHATROOM_INVITES` table & entity<br>• API: Send invite (owner only), list pending invites<br>• WebSocket: `invite_received` event to invitee<br>• Basic frontend UI for viewing & sending invites |
 | **4** | **Invitation Responses & Membership Updates**<br>• API: Accept/decline invites<br>• DB updates membership & invite status<br>• WebSocket: `invite_accepted`, `invite_declined`, `user_joined_room` events<br>• Frontend UI for accepting/declining invites |
 | **5** | **Messaging Core**<br>• WebSocket server setup with SignalR<br>• Send/receive real-time messages<br>• RabbitMQ integration for async persistence<br>• Store messages in PostgreSQL<br>• Redis pub/sub for broadcasting |
-| **6** | **Message History & Deletion**<br>• API: Paginated `GET /api/chatrooms/{id}/messages` excluding deleted<br>• API: Soft-delete message + WebSocket `message_deleted` event<br>• Frontend updates message list in real time |
+| **6** | **Message History & Deletion**<br>• API: `GET /api/chatrooms/{id}/messages` with cursor-based pagination (before/after/limit) using obfuscated Base64+HMAC cursors<br>• API: Soft-delete message + WebSocket `message_deleted` event<br>• Frontend updates message list in real time with cursor navigation |
 | **7** | **Frontend Chat UI & Presence**<br>• Complete chat room UI with member list<br>• Real-time presence indicators via Redis<br>• Typing indicators (`typing_started`, `typing_stopped`) |
 | **8** | **Final Testing & Deployment**<br>• End-to-end integration tests<br>• Security checks & rate limiting<br>• Production deployment scripts<br>• Post-launch monitoring setup |
